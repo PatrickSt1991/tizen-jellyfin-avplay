@@ -8,17 +8,29 @@ jobs:
       # 1. Checkout this repo
       - name: Checkout repo
         uses: actions/checkout@v4
-      # 2. Clone upstream jellyfin-tizen
+      # 2. Clone jellyfin-web
+      - name: Clone jellyfin-web
+        run: |
+          git clone https://github.com/jellyfin/jellyfin-web.git
+          cd jellyfin-web
+          git checkout master
+      # 3. Build jellyfin-web
+      - name: Build jellyfin-web
+        run: |
+          cd jellyfin-web
+          npm ci --no-audit
+          USE_SYSTEM_FONTS=1 npm run build:production
+      # 4. Clone upstream jellyfin-tizen
       - name: Clone upstream jellyfin-tizen
         run: |
           git clone https://github.com/jellyfin/jellyfin-tizen.git
           cd jellyfin-tizen
           git checkout master
-      # 3. Copy avplayVideoPlayer.js
+      # 5. Copy avplayVideoPlayer.js
       - name: Add avplayVideoPlayer.js
         run: |
           cp extras/avplayVideoPlayer.js jellyfin-tizen/avplayVideoPlayer.js
-      # 4. Patch tizen.js safely
+      # 6. Patch tizen.js safely
       - name: Patch tizen.js
         run: |
           cd jellyfin-tizen
@@ -27,7 +39,7 @@ jobs:
           else
             echo "tizen.js not found, skipping patch"
           fi
-      # 5. Patch tizen.css safely
+      # 7. Patch tizen.css safely
       - name: Patch tizen.css
         run: |
           cd jellyfin-tizen
@@ -46,7 +58,7 @@ jobs:
               z-index: 1000;
           }
           EOF
-      # 6. Patch gulpfile.babel.js safely
+      # 8. Patch gulpfile.babel.js safely
       - name: Patch gulpfile.babel.js
         run: |
           cd jellyfin-tizen
@@ -70,7 +82,7 @@ jobs:
           else
             echo "gulpfile.babel.js not found, skipping patch"
           fi
-      # 7. Patch config.xml safely
+      # 9. Patch config.xml safely
       - name: Patch config.xml
         run: |
           cd jellyfin-tizen
@@ -79,38 +91,22 @@ jobs:
           else
             echo "config.xml not found, skipping patch"
           fi
-      # 8. Install dependencies
-      - name: Install dependencies
+      # 10. Prepare jellyfin-tizen with web
+      - name: Prepare jellyfin-tizen interface
         run: |
           cd jellyfin-tizen
-          npm install --legacy-peer-deps --ignore-scripts
-      # 8b. Install Babel core for gulp
-      - name: Install Babel core
+          JELLYFIN_WEB_DIR=../jellyfin-web/dist npm ci --no-audit
+      # 11. Install Tizen CLI
+      - name: Install Tizen CLI
+        run: |
+          npm install -g @tizen/cli
+      # 12. Build WGT package
+      - name: Build WGT package
         run: |
           cd jellyfin-tizen
-          npm install --save-dev @babel/core
-      # 8c. Build jellyfin-web first
-      - name: Build jellyfin-web
-        run: |
-          cd jellyfin-tizen/node_modules/jellyfin-web
-          npm install 2>&1 || true
-          npm run build 2>&1 || true
-      # 9. Build project
-      - name: Build dist
-        run: |
-          cd jellyfin-tizen
-          npx gulp 2>&1 || true
-      # 9b. Debug - check what was created
-      - name: Debug - List all files
-        run: |
-          cd jellyfin-tizen
-          echo "=== Looking for all output files ==="
-          find . -type f \( -name "*.wgt" -o -name "*.zip" \) 2>/dev/null | head -20
-          echo "=== Listing root files ==="
-          ls -la
-          echo "=== Contents of dist if exists ==="
-          if [ -d dist ]; then ls -la dist/; else echo "No dist"; fi
-      # 10. Get Jellyfin version for artifact name
+          tizen build-web -e ".*" -e gulpfile.babel.js -e README.md -e "node_modules/*" -e "package*.json" -e "yarn.lock" -d .
+          tizen package -t wgt -o . -- .buildResult
+      # 13. Get Jellyfin version for artifact name
       - name: Get Jellyfin version
         id: version
         run: |
@@ -119,10 +115,10 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           DATE=$(date +'%Y-%m-%d')
           echo "date=$DATE" >> $GITHUB_OUTPUT
-      # 11. Find and upload WGT artifact
+      # 14. Upload WGT artifact
       - name: Upload WGT artifact
         uses: actions/upload-artifact@v4
         with:
           name: jellyfin-tizen-avplay-${{ steps.version.outputs.version }}-${{ steps.version.outputs.date }}
-          path: jellyfin-tizen/dist
+          path: jellyfin-tizen/*.wgt
           if-no-files-found: warn
