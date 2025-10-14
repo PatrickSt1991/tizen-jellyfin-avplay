@@ -1,32 +1,28 @@
 name: Check upstream Jellyfin Tizen
-
 on:
   schedule:
     - cron: "0 */12 * * *" # every 12 hours
   workflow_dispatch:
-
 jobs:
   check:
     runs-on: ubuntu-latest
-
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
       - name: Get latest upstream commit
         id: upstream
         run: |
           LATEST=$(git ls-remote https://github.com/jellyfin/jellyfin-tizen.git refs/heads/master | cut -f1)
           echo "latest_commit=$LATEST" >> $GITHUB_OUTPUT
-
       - name: Get last processed commit
         id: last
         run: |
-          # stored in a file in repo called last_commit.txt
           if [ -f .github/last_commit.txt ]; then
             LAST=$(cat .github/last_commit.txt)
           else
             LAST=""
           fi
           echo "last_commit=$LAST" >> $GITHUB_OUTPUT
-
       - name: Compare commits
         id: compare
         run: |
@@ -35,19 +31,16 @@ jobs:
           else
             echo "update_needed=false" >> $GITHUB_OUTPUT
           fi
-
       - name: Trigger build if updated
         if: steps.compare.outputs.update_needed == 'true'
-        uses: peter-evans/workflow-dispatch@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: patrickst1991/tizen-jellyfin-avplay
-          workflow: build-avplay.yml
-          ref: main
-
+        run: |
+          gh workflow run build-avplay.yml --ref main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Update last commit file
         if: steps.compare.outputs.update_needed == 'true'
         run: |
+          mkdir -p .github
           echo "${{ steps.upstream.outputs.latest_commit }}" > .github/last_commit.txt
           git config user.name "github-actions"
           git config user.email "actions@github.com"
