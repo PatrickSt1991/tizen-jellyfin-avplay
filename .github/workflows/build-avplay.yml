@@ -61,7 +61,7 @@ EOF
         run: |
           cd jellyfin-tizen
           if [ -f gulpfile.babel.js ]; then
-            cat <<'EOF' >> temp_patch.js
+            cat <<'EOF' >> gulpfile.babel.js
 // --- AVPlay injection start ---
 if (typeof injectTarget !== 'undefined') {
     // inject avplayVideoPlayer.js
@@ -78,9 +78,6 @@ if (typeof injectTarget !== 'undefined') {
 }
 // --- AVPlay injection end ---
 EOF
-            # append patch to gulpfile
-            cat temp_patch.js >> gulpfile.babel.js
-            rm temp_patch.js
           else
             echo "gulpfile.babel.js not found, skipping patch"
           fi
