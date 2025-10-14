@@ -34,18 +34,18 @@ jobs:
           if [ ! -f tizen.css ]; then
             touch tizen.css
           fi
-          cat <<'EOF' >> tizen.css
-.avplayVideoPlayer {
-    position: fixed !important;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-}
-.avplayVideoPlayerOnTop {
-    z-index: 1000;
-}
-EOF
+          cat >> tizen.css << 'EOF'
+          .avplayVideoPlayer {
+              position: fixed !important;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+          }
+          .avplayVideoPlayerOnTop {
+              z-index: 1000;
+          }
+          EOF
       # 6. Patch gulpfile.babel.js safely
       - name: Patch gulpfile.babel.js
         run: |
