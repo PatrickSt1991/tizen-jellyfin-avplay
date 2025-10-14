@@ -29,8 +29,8 @@ jobs:
         run: |
           cd jellyfin-tizen
           if [ -f tizen.js ]; then
-            sed -i '/var SupportedFeatures = \[/a ];\n\nvar plugins = {\n    "AvplayVideoPlayer": "avplayVideoPlayer"\n};' tizen.js
-            sed -i '0,/];/{s/];/]/}' tizen.js
+            sed -i '/var SupportedFeatures = \[/a \
+var plugins = { "AvplayVideoPlayer": "avplayVideoPlayer" };' tizen.js
           else
             echo "tizen.js not found, skipping patch"
           fi
@@ -62,18 +62,26 @@ EOF
         run: |
           cd jellyfin-tizen
           if [ -f gulpfile.babel.js ]; then
-            sed -i '/inject tizen.js/a \
-              // inject avplayVideoPlayer.js\n\
-              const avplayVideoPlayer = this.createElement("script");\n\
-              avplayVideoPlayer.setAttribute("src", "../avplayVideoPlayer.js");\n\
-              avplayVideoPlayer.setAttribute("defer", "");\n\
-              injectTarget.insertBefore(avplayVideoPlayer, apploader);\n\
-              \n\
-              // inject tizen.css\n\
-              const tizenCss = this.createElement("link");\n\
-              tizenCss.setAttribute("rel", "stylesheet");\n\
-              tizenCss.setAttribute("href", "../tizen.css");\n\
-              this.head.appendChild(tizenCss);' gulpfile.babel.js
+            cat <<'EOF' >> temp_patch.js
+// --- AVPlay injection start ---
+if (typeof injectTarget !== 'undefined') {
+    // inject avplayVideoPlayer.js
+    const avplayVideoPlayer = document.createElement("script");
+    avplayVideoPlayer.setAttribute("src", "../avplayVideoPlayer.js");
+    avplayVideoPlayer.setAttribute("defer", "");
+    injectTarget.insertBefore(avplayVideoPlayer, apploader);
+
+    // inject tizen.css
+    const tizenCss = document.createElement("link");
+    tizenCss.setAttribute("rel", "stylesheet");
+    tizenCss.setAttribute("href", "../tizen.css");
+    document.head.appendChild(tizenCss);
+}
+// --- AVPlay injection end ---
+EOF
+            # append patch to gulpfile
+            cat temp_patch.js >> gulpfile.babel.js
+            rm temp_patch.js
           else
             echo "gulpfile.babel.js not found, skipping patch"
           fi
@@ -84,7 +92,7 @@ EOF
           cd jellyfin-tizen
           if [ -f config.xml ]; then
             sed -i '/<tizen:privilege name="http:\/\/developer.samsung.com\/privilege\/productinfo"\/>/a \
-            <tizen:privilege name="http://tizen.org/privilege/download"/>' config.xml
+<tizen:privilege name="http://tizen.org/privilege/download"/>' config.xml
           else
             echo "config.xml not found, skipping patch"
           fi
