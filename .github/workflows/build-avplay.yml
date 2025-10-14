@@ -89,11 +89,17 @@ jobs:
         run: |
           cd jellyfin-tizen
           npm install --save-dev @babel/core
+      # 8c. Build jellyfin-web first
+      - name: Build jellyfin-web
+        run: |
+          cd jellyfin-tizen/node_modules/jellyfin-web
+          npm install 2>&1 || true
+          npm run build 2>&1 || true
       # 9. Build project
       - name: Build dist
         run: |
           cd jellyfin-tizen
-          npm run build 2>&1 || npx gulp build 2>&1 || true
+          npx gulp 2>&1 || true
       # 9b. Debug - check what was created
       - name: Debug - List all files
         run: |
