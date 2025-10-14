@@ -83,7 +83,12 @@ jobs:
       - name: Install dependencies
         run: |
           cd jellyfin-tizen
-          npm install --legacy-peer-deps
+          npm install --legacy-peer-deps --ignore-scripts
+      # 8b. Install Babel core for gulp
+      - name: Install Babel core
+        run: |
+          cd jellyfin-tizen
+          npm install --save-dev @babel/core
       # 9. Build project
       - name: Build dist
         run: |
