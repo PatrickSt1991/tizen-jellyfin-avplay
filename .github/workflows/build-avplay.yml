@@ -51,22 +51,22 @@ jobs:
         run: |
           cd jellyfin-tizen
           if [ -f gulpfile.babel.js ]; then
-            cat <<'EOF' >> gulpfile.babel.js
-// --- AVPlay injection start ---
-if (typeof injectTarget !== 'undefined') {
-    // inject avplayVideoPlayer.js
-    const avplayVideoPlayer = document.createElement("script");
-    avplayVideoPlayer.setAttribute("src", "../avplayVideoPlayer.js");
-    avplayVideoPlayer.setAttribute("defer", "");
-    injectTarget.insertBefore(avplayVideoPlayer, apploader);
-    // inject tizen.css
-    const tizenCss = document.createElement("link");
-    tizenCss.setAttribute("rel", "stylesheet");
-    tizenCss.setAttribute("href", "../tizen.css");
-    document.head.appendChild(tizenCss);
-}
-// --- AVPlay injection end ---
-EOF
+            cat >> gulpfile.babel.js << 'EOF'
+          // --- AVPlay injection start ---
+          if (typeof injectTarget !== 'undefined') {
+              // inject avplayVideoPlayer.js
+              const avplayVideoPlayer = document.createElement("script");
+              avplayVideoPlayer.setAttribute("src", "../avplayVideoPlayer.js");
+              avplayVideoPlayer.setAttribute("defer", "");
+              injectTarget.insertBefore(avplayVideoPlayer, apploader);
+              // inject tizen.css
+              const tizenCss = document.createElement("link");
+              tizenCss.setAttribute("rel", "stylesheet");
+              tizenCss.setAttribute("href", "../tizen.css");
+              document.head.appendChild(tizenCss);
+          }
+          // --- AVPlay injection end ---
+          EOF
           else
             echo "gulpfile.babel.js not found, skipping patch"
           fi
