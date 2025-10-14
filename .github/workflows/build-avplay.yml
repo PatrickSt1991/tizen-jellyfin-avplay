@@ -29,8 +29,7 @@ jobs:
         run: |
           cd jellyfin-tizen
           if [ -f tizen.js ]; then
-            sed -i '/var SupportedFeatures = \[/a \
-var plugins = { "AvplayVideoPlayer": "avplayVideoPlayer" };' tizen.js
+            echo 'var plugins = { "AvplayVideoPlayer": "avplayVideoPlayer" };' >> tizen.js
           else
             echo "tizen.js not found, skipping patch"
           fi
