@@ -94,6 +94,18 @@ jobs:
         run: |
           cd jellyfin-tizen
           npx gulp 2>&1 || true
+      # 9b. Debug - check what was created
+      - name: Debug - List build output
+        run: |
+          cd jellyfin-tizen
+          echo "=== Contents of jellyfin-tizen ==="
+          find . -type f -name "*.wgt" 2>/dev/null | head -20
+          echo "=== dist directory ==="
+          ls -la dist/ 2>/dev/null || echo "No dist directory"
+          echo "=== build directory ==="
+          ls -la build/ 2>/dev/null || echo "No build directory"
+          echo "=== root directory ==="
+          ls -la | grep -E "dist|build|wgt" || echo "No dist/build/wgt files in root"
       # 10. Get Jellyfin version for artifact name
       - name: Get Jellyfin version
         id: version
@@ -108,5 +120,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jellyfin-tizen-avplay-${{ steps.version.outputs.version }}-${{ steps.version.outputs.date }}
-          path: jellyfin-tizen/**/*.wgt
+          path: jellyfin-tizen/dist
           if-no-files-found: warn
