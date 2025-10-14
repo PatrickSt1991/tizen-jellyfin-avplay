@@ -24,17 +24,25 @@ jobs:
         run: |
           cp extras/avplayVideoPlayer.js jellyfin-tizen/avplayVideoPlayer.js
 
-      # 4. Patch tizen.js
+      # 4. Patch tizen.js safely
       - name: Patch tizen.js
         run: |
           cd jellyfin-tizen
-          sed -i '/var SupportedFeatures = \[/a ];\n\nvar plugins = {\n    "AvplayVideoPlayer": "avplayVideoPlayer"\n};' tizen.js
-          sed -i '0,/];/{s/];/]/}' tizen.js
+          if [ -f tizen.js ]; then
+            sed -i '/var SupportedFeatures = \[/a ];\n\nvar plugins = {\n    "AvplayVideoPlayer": "avplayVideoPlayer"\n};' tizen.js
+            sed -i '0,/];/{s/];/]/}' tizen.js
+          else
+            echo "tizen.js not found, skipping patch"
+          fi
 
-      # 5. Patch tizen.css
+      # 5. Patch tizen.css safely
       - name: Patch tizen.css
         run: |
-          cat <<'EOF' >> jellyfin-tizen/tizen.css
+          cd jellyfin-tizen
+          if [ ! -f tizen.css ]; then
+            touch tizen.css
+          fi
+          cat <<'EOF' >> tizen.css
 
 .avplayVideoPlayer {
     position: fixed !important;
@@ -49,29 +57,37 @@ jobs:
 }
 EOF
 
-      # 6. Patch gulpfile.babel.js
+      # 6. Patch gulpfile.babel.js safely
       - name: Patch gulpfile.babel.js
         run: |
           cd jellyfin-tizen
-          sed -i '/inject tizen.js/a \
-            // inject avplayVideoPlayer.js\n\
-            const avplayVideoPlayer = this.createElement("script");\n\
-            avplayVideoPlayer.setAttribute("src", "../avplayVideoPlayer.js");\n\
-            avplayVideoPlayer.setAttribute("defer", "");\n\
-            injectTarget.insertBefore(avplayVideoPlayer, apploader);\n\
-            \n\
-            // inject tizen.css\n\
-            const tizenCss = this.createElement("link");\n\
-            tizenCss.setAttribute("rel", "stylesheet");\n\
-            tizenCss.setAttribute("href", "../tizen.css");\n\
-            this.head.appendChild(tizenCss);' gulpfile.babel.js
+          if [ -f gulpfile.babel.js ]; then
+            sed -i '/inject tizen.js/a \
+              // inject avplayVideoPlayer.js\n\
+              const avplayVideoPlayer = this.createElement("script");\n\
+              avplayVideoPlayer.setAttribute("src", "../avplayVideoPlayer.js");\n\
+              avplayVideoPlayer.setAttribute("defer", "");\n\
+              injectTarget.insertBefore(avplayVideoPlayer, apploader);\n\
+              \n\
+              // inject tizen.css\n\
+              const tizenCss = this.createElement("link");\n\
+              tizenCss.setAttribute("rel", "stylesheet");\n\
+              tizenCss.setAttribute("href", "../tizen.css");\n\
+              this.head.appendChild(tizenCss);' gulpfile.babel.js
+          else
+            echo "gulpfile.babel.js not found, skipping patch"
+          fi
 
-      # 7. Patch config.xml
+      # 7. Patch config.xml safely
       - name: Patch config.xml
         run: |
           cd jellyfin-tizen
-          sed -i '/<tizen:privilege name="http:\/\/developer.samsung.com\/privilege\/productinfo"\/>/a \
-          <tizen:privilege name="http://tizen.org/privilege/download"/>' config.xml
+          if [ -f config.xml ]; then
+            sed -i '/<tizen:privilege name="http:\/\/developer.samsung.com\/privilege\/productinfo"\/>/a \
+            <tizen:privilege name="http://tizen.org/privilege/download"/>' config.xml
+          else
+            echo "config.xml not found, skipping patch"
+          fi
 
       # 8. Install dependencies
       - name: Install dependencies
@@ -102,7 +118,7 @@ EOF
           DATE=$(date +'%Y-%m-%d')
           echo "date=$DATE" >> $GITHUB_OUTPUT
 
-      # 12. Upload artifact with version + date
+      # 12. Upload artifact
       - name: Upload WGT artifact
         uses: actions/upload-artifact@v4
         with:
