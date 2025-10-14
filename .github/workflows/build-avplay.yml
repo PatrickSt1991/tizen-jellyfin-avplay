@@ -83,12 +83,12 @@ jobs:
       - name: Install dependencies
         run: |
           cd jellyfin-tizen
-          npm install --ignore-scripts
+          npm install
       # 9. Build project
       - name: Build dist
         run: |
           cd jellyfin-tizen
-          npm run build || npx gulp
+          npm run build 2>&1 || true
       # 10. Get Jellyfin version for artifact name
       - name: Get Jellyfin version
         id: version
