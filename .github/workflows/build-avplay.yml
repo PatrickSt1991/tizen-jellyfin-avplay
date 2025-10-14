@@ -83,7 +83,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd jellyfin-tizen
-          npm install
+          npm install --ignore-scripts
       # 9. Build project
       - name: Build dist
         run: |
