@@ -4,7 +4,7 @@ on:
     - cron: "0 */12 * * *" # every 12 hours
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
   actions: write
 jobs:
   check:
