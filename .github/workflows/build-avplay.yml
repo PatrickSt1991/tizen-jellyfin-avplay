@@ -79,28 +79,17 @@ jobs:
           else
             echo "config.xml not found, skipping patch"
           fi
-      # 8. Install Tizen CLI
-      - name: Install Tizen CLI
-        run: |
-          npm install -g tizen-cli
-      # 9. Install dependencies
+      # 8. Install dependencies
       - name: Install dependencies
         run: |
           cd jellyfin-tizen
           npm install
-      # 10. Build project
+      # 9. Build project
       - name: Build dist
         run: |
           cd jellyfin-tizen
           npm run build || npx gulp
-      # 11. Package WGT
-      - name: Package WGT
-        run: |
-          cd jellyfin-tizen
-          mkdir -p output
-          tizen package -t wgt -o ./output || echo "Tizen package failed - checking for build output"
-          ls -la
-      # 12. Get Jellyfin version for artifact name
+      # 10. Get Jellyfin version for artifact name
       - name: Get Jellyfin version
         id: version
         run: |
@@ -109,10 +98,10 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           DATE=$(date +'%Y-%m-%d')
           echo "date=$DATE" >> $GITHUB_OUTPUT
-      # 13. Upload artifact
+      # 11. Find and upload WGT artifact
       - name: Upload WGT artifact
         uses: actions/upload-artifact@v4
         with:
           name: jellyfin-tizen-avplay-${{ steps.version.outputs.version }}-${{ steps.version.outputs.date }}
-          path: jellyfin-tizen/output/*.wgt
+          path: jellyfin-tizen/**/*.wgt
           if-no-files-found: warn
