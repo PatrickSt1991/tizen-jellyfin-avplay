@@ -1,0 +1,110 @@
+name: Build Jellyfin Tizen AVPlay
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout this repo
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2. Clone upstream jellyfin-tizen
+      - name: Clone upstream jellyfin-tizen
+        run: |
+          git clone https://github.com/jellyfin/jellyfin-tizen.git
+          cd jellyfin-tizen
+          git checkout master
+
+      # 3. Copy avplayVideoPlayer.js
+      - name: Add avplayVideoPlayer.js
+        run: |
+          cp extras/avplayVideoPlayer.js jellyfin-tizen/avplayVideoPlayer.js
+
+      # 4. Patch tizen.js
+      - name: Patch tizen.js
+        run: |
+          cd jellyfin-tizen
+          sed -i '/var SupportedFeatures = \[/a ];\n\nvar plugins = {\n    "AvplayVideoPlayer": "avplayVideoPlayer"\n};' tizen.js
+          sed -i '0,/];/{s/];/]/}' tizen.js
+
+      # 5. Patch tizen.css
+      - name: Patch tizen.css
+        run: |
+          cat <<'EOF' >> jellyfin-tizen/tizen.css
+
+.avplayVideoPlayer {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.avplayVideoPlayerOnTop {
+    z-index: 1000;
+}
+EOF
+
+      # 6. Patch gulpfile.babel.js
+      - name: Patch gulpfile.babel.js
+        run: |
+          cd jellyfin-tizen
+          sed -i '/inject tizen.js/a \
+            // inject avplayVideoPlayer.js\n\
+            const avplayVideoPlayer = this.createElement("script");\n\
+            avplayVideoPlayer.setAttribute("src", "../avplayVideoPlayer.js");\n\
+            avplayVideoPlayer.setAttribute("defer", "");\n\
+            injectTarget.insertBefore(avplayVideoPlayer, apploader);\n\
+            \n\
+            // inject tizen.css\n\
+            const tizenCss = this.createElement("link");\n\
+            tizenCss.setAttribute("rel", "stylesheet");\n\
+            tizenCss.setAttribute("href", "../tizen.css");\n\
+            this.head.appendChild(tizenCss);' gulpfile.babel.js
+
+      # 7. Patch config.xml
+      - name: Patch config.xml
+        run: |
+          cd jellyfin-tizen
+          sed -i '/<tizen:privilege name="http:\/\/developer.samsung.com\/privilege\/productinfo"\/>/a \
+          <tizen:privilege name="http://tizen.org/privilege/download"/>' config.xml
+
+      # 8. Install dependencies
+      - name: Install dependencies
+        run: |
+          cd jellyfin-tizen
+          npm install
+
+      # 9. Build project
+      - name: Build dist
+        run: |
+          cd jellyfin-tizen
+          npm run build || npx gulp
+
+      # 10. Package WGT
+      - name: Package WGT
+        run: |
+          cd jellyfin-tizen
+          mkdir -p output
+          tizen package -t wgt -o ./output
+
+      # 11. Get Jellyfin version for artifact name
+      - name: Get Jellyfin version
+        id: version
+        run: |
+          cd jellyfin-tizen
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          DATE=$(date +'%Y-%m-%d')
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+
+      # 12. Upload artifact with version + date
+      - name: Upload WGT artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jellyfin-tizen-avplay-${{ steps.version.outputs.version }}-${{ steps.version.outputs.date }}
+          path: jellyfin-tizen/output/*.wgt
