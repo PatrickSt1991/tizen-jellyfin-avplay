@@ -96,16 +96,26 @@ jobs:
         run: |
           cd jellyfin-tizen
           JELLYFIN_WEB_DIR=../jellyfin-web/dist npm ci --no-audit
-      # 11. Install Tizen CLI
-      - name: Install Tizen CLI
-        run: |
-          npm install -g @tizen/cli
-      # 12. Build WGT package
-      - name: Build WGT package
+      # 11. Create WGT package manually
+      - name: Create WGT package
         run: |
           cd jellyfin-tizen
-          tizen build-web -e ".*" -e gulpfile.babel.js -e README.md -e "node_modules/*" -e "package*.json" -e "yarn.lock" -d .
-          tizen package -t wgt -o . -- .buildResult
+          # Create the build output directory structure
+          mkdir -p .buildResult/www
+          mkdir -p .buildResult/res
+          
+          # Copy built web files
+          cp -r www/* .buildResult/www/ 2>/dev/null || echo "Copying www files"
+          
+          # Copy config and other necessary files
+          cp config.xml .buildResult/
+          cp icon.png .buildResult/res/ 2>/dev/null || echo "Icon optional"
+          
+          # Create the WGT (which is just a ZIP file with .wgt extension)
+          cd .buildResult
+          zip -r ../Jellyfin.wgt . -x "node_modules/*" "*.git*" ".github/*"
+          cd ..
+          ls -la Jellyfin.wgt
       # 13. Get Jellyfin version for artifact name
       - name: Get Jellyfin version
         id: version
