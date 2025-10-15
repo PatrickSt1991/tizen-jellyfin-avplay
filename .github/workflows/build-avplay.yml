@@ -1,6 +1,13 @@
 name: Build Jellyfin Tizen AVPlay
 on:
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TIZEN_STUDIO_VER: 5.5
+  
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -8,38 +15,71 @@ jobs:
       # 1. Checkout this repo
       - name: Checkout repo
         uses: actions/checkout@v4
-      # 2. Clone jellyfin-web
+        
+      # 2. Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '>=20'
+          
+      # 3. Install required packages
+      - name: Install required packages
+        run: sudo apt install expect
+        
+      # 4. Download Tizen Studio
+      - name: Download Tizen Studio
+        run: |
+          curl -o tizen-installer "https://download.tizen.org/sdk/Installer/tizen-studio_${TIZEN_STUDIO_VER}/web-cli_Tizen_Studio_${TIZEN_STUDIO_VER}_ubuntu-64.bin"
+          
+      # 5. Install Tizen Studio
+      - name: Install Tizen Studio
+        run: |
+          chmod +x tizen-installer
+          ./tizen-installer --accept-license "${GITHUB_WORKSPACE}/tizen-studio"
+          rm ./tizen-installer
+          
+      # 6. Create Tizen Certificate
+      - name: Create Tizen Certificate
+        run: |
+          ${GITHUB_WORKSPACE}/tizen-studio/tools/ide/bin/tizen certificate -a Jellyfin -p 1234 -c US -s California -ct SanFrancisco -o Jellyfin -n JellyfinAvplay -e jellyfin@example.org -f jellyfinAvplay
+          ${GITHUB_WORKSPACE}/tizen-studio/tools/ide/bin/tizen security-profiles add -n JellyfinAvplay -a "${GITHUB_WORKSPACE}/jellyfinAvplay.p12" -p 1234
+          ${GITHUB_WORKSPACE}/tizen-studio/tools/ide/bin/tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-studio-data/profile/profiles.xml"
+          
+      # 7. Clone jellyfin-web
       - name: Clone jellyfin-web
         run: |
           git clone https://github.com/jellyfin/jellyfin-web.git
           cd jellyfin-web
           git checkout master
-      # 3. Build jellyfin-web
+          
+      # 8. Build jellyfin-web
       - name: Build jellyfin-web
         run: |
           cd jellyfin-web
           npm ci --no-audit
           USE_SYSTEM_FONTS=1 npm run build:production
-      # 4. Clone upstream jellyfin-tizen
-      - name: Clone upstream jellyfin-tizen
+          
+      # 9. Clone upstream jellyfin-tizen
+      - name: Clone jellyfin-tizen
         run: |
           git clone https://github.com/jellyfin/jellyfin-tizen.git
           cd jellyfin-tizen
           git checkout master
-      # 5. Copy avplayVideoPlayer.js
+          
+      # 10. Copy avplayVideoPlayer.js
       - name: Add avplayVideoPlayer.js
         run: |
           cp extras/avplayVideoPlayer.js jellyfin-tizen/avplayVideoPlayer.js
-      # 6. Patch tizen.js safely
+          
+      # 11. Patch tizen.js
       - name: Patch tizen.js
         run: |
           cd jellyfin-tizen
           if [ -f tizen.js ]; then
             echo 'var plugins = { "AvplayVideoPlayer": "avplayVideoPlayer" };' >> tizen.js
-          else
-            echo "tizen.js not found, skipping patch"
           fi
-      # 7. Patch tizen.css safely
+          
+      # 12. Patch tizen.css
       - name: Patch tizen.css
         run: |
           cd jellyfin-tizen
@@ -58,7 +98,8 @@ jobs:
               z-index: 1000;
           }
           EOF
-      # 8. Patch gulpfile.babel.js safely
+          
+      # 13. Patch gulpfile.babel.js
       - name: Patch gulpfile.babel.js
         run: |
           cd jellyfin-tizen
@@ -79,56 +120,89 @@ jobs:
           }
           // --- AVPlay injection end ---
           EOF
-          else
-            echo "gulpfile.babel.js not found, skipping patch"
           fi
-      # 9. Patch config.xml safely
+          
+      # 14. Patch config.xml
       - name: Patch config.xml
         run: |
           cd jellyfin-tizen
           if [ -f config.xml ]; then
             sed -i '/<tizen:privilege name="http:\/\/developer.samsung.com\/privilege\/productinfo"\/>/a <tizen:privilege name="http:\/\/tizen.org\/privilege\/download"\/>' config.xml
-          else
-            echo "config.xml not found, skipping patch"
           fi
-      # 10. Prepare jellyfin-tizen with web
-      - name: Prepare jellyfin-tizen interface
+          
+      # 15. Prepare jellyfin-tizen interface
+      - name: Prepare jellyfin-tizen
         run: |
           cd jellyfin-tizen
           JELLYFIN_WEB_DIR=../jellyfin-web/dist npm ci --no-audit
-      # 11. Create WGT package manually
-      - name: Create WGT package
+          
+      # 16. Build web package
+      - name: Build web package
         run: |
           cd jellyfin-tizen
-          # Create the build output directory structure
-          mkdir -p .buildResult/www
-          mkdir -p .buildResult/res
+          ${GITHUB_WORKSPACE}/tizen-studio/tools/ide/bin/tizen build-web -e ".*" -e gulpfile.babel.js -e README.md -e "node_modules/*" -e "package*.json" -e "yarn.lock"
           
-          # Copy built web files
-          cp -r www/* .buildResult/www/ 2>/dev/null || echo "Copying www files"
+      # 17. Prepare for signing
+      - name: Prepare for signing
+        run: |
+          sed -i "s|${GITHUB_WORKSPACE}/jellyfinAvplay.pwd|1234|g" ${GITHUB_WORKSPACE}/tizen-studio-data/profile/profiles.xml
+          sed -i "s|${GITHUB_WORKSPACE}/tizen-studio-data/tools/certificate-generator/certificates/distributor/tizen-distributor-signer.pwd|tizenpkcs12passfordsigner|g" ${GITHUB_WORKSPACE}/tizen-studio-data/profile/profiles.xml
+          sed -i 's|password=""|password="tizenpkcs12passfordsigner"|g' ${GITHUB_WORKSPACE}/tizen-studio-data/profile/profiles.xml
           
-          # Copy config and other necessary files
-          cp config.xml .buildResult/
-          cp icon.png .buildResult/res/ 2>/dev/null || echo "Icon optional"
+      # 18. Create expect script for packaging
+      - name: Create expect script
+        run: |
+          cat > package.exp << 'EOF'
+          #!/usr/bin/expect -f
+          set timeout -1
+          spawn $env(GITHUB_WORKSPACE)/tizen-studio/tools/ide/bin/tizen package -t wgt -s JellyfinAvplay -- $env(GITHUB_WORKSPACE)/jellyfin-tizen/.buildResult
+          expect "Author password:"
+          send "1234\r"
+          expect "Distributor1 password:"
+          send "tizenpkcs12passfordsigner\r"
+          expect eof
+          EOF
+          chmod +x package.exp
           
-          # Create the WGT (which is just a ZIP file with .wgt extension)
-          cd .buildResult
-          zip -r ../Jellyfin.wgt . -x "node_modules/*" "*.git*" ".github/*"
-          cd ..
-          ls -la Jellyfin.wgt
-      # 13. Get Jellyfin version for artifact name
-      - name: Get Jellyfin version
+      # 19. Package WGT
+      - name: Package WGT
+        run: |
+          ./package.exp
+          mkdir -p release
+          mv jellyfin-tizen/.buildResult/Jellyfin.wgt release/Jellyfin-AVPlay.wgt
+          
+      # 20. Get version and date
+      - name: Get version info
         id: version
         run: |
           cd jellyfin-tizen
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          DATE=$(date +'%Y-%m-%d')
-          echo "date=$DATE" >> $GITHUB_OUTPUT
-      # 14. Upload WGT artifact
-      - name: Upload WGT artifact
-        uses: actions/upload-artifact@v4
+          DATE=$(date +'%Y-%m-%d-%H%M')
+          echo "date_tag=$DATE" >> $GITHUB_OUTPUT
+          DATE_PRETTY=$(date +'%Y-%m-%d %H:%M')
+          echo "date_pretty=$DATE_PRETTY" >> $GITHUB_OUTPUT
+          
+      # 21. Create Release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: jellyfin-tizen-avplay-${{ steps.version.outputs.version }}-${{ steps.version.outputs.date }}
-          path: jellyfin-tizen/*.wgt
-          if-no-files-found: warn
+          tag_name: 'v${{ steps.version.outputs.version }}-${{ steps.version.outputs.date_tag }}'
+          name: 'Jellyfin Tizen AVPlay v${{ steps.version.outputs.version }} - ${{ steps.version.outputs.date_pretty }}'
+          files: release/*.wgt
+          body: |
+            # Jellyfin Tizen with AVPlay Support
+            
+            Built on ${{ steps.version.outputs.date_pretty }}
+            
+            ## Features
+            - Based on Jellyfin Web master branch
+            - Includes AVPlay video player patches for better Samsung TV compatibility
+            
+            ## Installation
+            1. Enable Developer Mode on your Samsung TV
+            2. Install the WGT file using Tizen Studio or sdb
+            
+            See the [README](https://github.com/${{ github.repository }}) for detailed installation instructions.
+          draft: false
+          prerelease: false
