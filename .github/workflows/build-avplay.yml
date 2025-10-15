@@ -42,7 +42,7 @@ jobs:
       - name: Create Tizen Certificate
         run: |
           ${GITHUB_WORKSPACE}/tizen-studio/tools/ide/bin/tizen certificate -a Jellyfin -p 1234 -c US -s California -ct SanFrancisco -o Jellyfin -n JellyfinAvplay -e jellyfin@example.org -f jellyfinAvplay
-          ${GITHUB_WORKSPACE}/tizen-studio/tools/ide/bin/tizen security-profiles add -n JellyfinAvplay -a "${GITHUB_WORKSPACE}/jellyfinAvplay.p12" -p 1234
+          ${GITHUB_WORKSPACE}/tizen-studio/tools/ide/bin/tizen security-profiles add -n JellyfinAvplay -a "${GITHUB_WORKSPACE}/tizen-studio-data/keystore/author/jellyfinAvplay.p12" -p 1234
           ${GITHUB_WORKSPACE}/tizen-studio/tools/ide/bin/tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-studio-data/profile/profiles.xml"
           
       # 7. Clone jellyfin-web
@@ -145,7 +145,7 @@ jobs:
       # 17. Prepare for signing
       - name: Prepare for signing
         run: |
-          sed -i "s|${GITHUB_WORKSPACE}/jellyfinAvplay.pwd|1234|g" ${GITHUB_WORKSPACE}/tizen-studio-data/profile/profiles.xml
+          sed -i "s|${GITHUB_WORKSPACE}/tizen-studio-data/keystore/author/jellyfinAvplay.pwd|1234|g" ${GITHUB_WORKSPACE}/tizen-studio-data/profile/profiles.xml
           sed -i "s|${GITHUB_WORKSPACE}/tizen-studio-data/tools/certificate-generator/certificates/distributor/tizen-distributor-signer.pwd|tizenpkcs12passfordsigner|g" ${GITHUB_WORKSPACE}/tizen-studio-data/profile/profiles.xml
           sed -i 's|password=""|password="tizenpkcs12passfordsigner"|g' ${GITHUB_WORKSPACE}/tizen-studio-data/profile/profiles.xml
           
