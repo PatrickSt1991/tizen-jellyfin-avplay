@@ -154,13 +154,27 @@ jobs:
         run: |
           cat > package.exp << 'EOF'
           #!/usr/bin/expect -f
-          set timeout -1
+          set timeout 300
           spawn $env(GITHUB_WORKSPACE)/tizen-studio/tools/ide/bin/tizen package -t wgt -s JellyfinAvplay -- $env(GITHUB_WORKSPACE)/jellyfin-tizen/.buildResult
-          expect "Author password:"
-          send "1234\r"
-          expect "Distributor1 password:"
-          send "tizenpkcs12passfordsigner\r"
-          expect eof
+          expect {
+            "Author password:" {
+              send "1234\r"
+              exp_continue
+            }
+            "Save author password" {
+              send "n\r"
+              exp_continue
+            }
+            "Distributor1 password:" {
+              send "tizenpkcs12passfordsigner\r"
+              exp_continue
+            }
+            "Save distributor1 password" {
+              send "n\r"
+              exp_continue
+            }
+            eof
+          }
           EOF
           chmod +x package.exp
           
