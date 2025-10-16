@@ -15,7 +15,7 @@ jobs:
       - name: Get latest upstream commit
         id: upstream
         run: |
-          LATEST=$(git ls-remote https://github.com/jellyfin/jellyfin-tizen.git refs/heads/master | cut -f1)
+          LATEST=$(git ls-remote https://github.com/jellyfin/jellyfin-web.git refs/heads/master | cut -f1)
           echo "latest_commit=$LATEST" >> $GITHUB_OUTPUT
       - name: Get last processed commit
         id: last
